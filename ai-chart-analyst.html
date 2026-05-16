@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chart Analyst</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .loader {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .drag-active {
+            border-color: #3b82f6 !important;
+            background-color: rgba(59, 130, 246, 0.1) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center py-10 px-4 sm:px-6 lg:px-8">
+    <div class="w-full max-w-5xl space-y-6">
+        <header class="text-center space-y-2 mb-8">
+            <div class="flex items-center justify-center space-x-3 text-blue-400 mb-2">
+                <i data-lucide="line-chart" class="w-10 h-10"></i>
+                <h1 class="text-4xl font-bold tracking-tight text-white">AI Chart Analyst</h1>
+            </div>
+            <p class="text-slate-400 max-w-2xl mx-auto">Upload a screenshot of any trading chart (Crypto, Stocks, Forex). AI will analyze the patterns, identify key levels, and provide a trading signal.</p>
+        </header>
+
+        <div class="glass-panel rounded-2xl p-5 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="apiKeyInput" class="block text-sm font-medium text-slate-300 mb-2">FreeModel API Key</label>
+                    <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Paste your FreeModel API key" class="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="modelInput" class="block text-sm font-medium text-slate-300 mb-2">Model</label>
+                    <input id="modelInput" type="text" autocomplete="off" class="w-full rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
+                </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input id="endpointInput" type="url" autocomplete="off" class="flex-1 rounded-lg border border-slate-700 bg-slate-950/70 px-4 py-2.5 text-sm text-white outline-none transition focus:border-blue-500">
+                <button id="rememberKeyBtn" type="button" class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-700 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-800">
+                    <i data-lucide="key-round" class="w-4 h-4"></i>
+                    Remember Settings
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-panel rounded-2xl p-6 flex flex-col space-y-4">
+                <h2 class="text-xl font-semibold flex items-center space-x-2 border-b border-slate-700 pb-3">
+                    <i data-lucide="image" class="w-5 h-5 text-blue-400"></i>
+                    <span>Chart Input</span>
+                </h2>
+
+                <div id="dropZone" class="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-slate-800/50 flex flex-col items-center justify-center min-h-[300px] relative overflow-hidden group">
+                    <div id="uploadPlaceholder" class="flex flex-col items-center space-y-4 pointer-events-none">
+                        <div class="bg-slate-800 p-4 rounded-full text-blue-400 group-hover:scale-110 transition-transform">
+                            <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-slate-300">Click to upload or drag and drop</p>
+                            <p class="text-xs text-slate-500">PNG, JPG or WEBP (Max 5MB)</p>
+                        </div>
+                    </div>
+
+                    <img id="imagePreview" src="" alt="Chart Preview" class="absolute inset-0 w-full h-full object-contain hidden bg-slate-900/50 p-2">
+                    <input type="file" id="fileInput" class="hidden" accept="image/jpeg, image/png, image/webp">
+                </div>
+
+                <div class="flex justify-between items-center mt-4">
+                    <button id="clearBtn" class="px-4 py-2 text-sm font-medium text-slate-400 hover:text-white transition-colors hidden">
+                        Clear Image
+                    </button>
+                    <button id="analyzeBtn" disabled class="ml-auto flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-blue-900/20">
+                        <span id="analyzeBtnText">Analyze Chart</span>
+                        <div id="analyzeBtnLoader" class="loader hidden"></div>
+                        <i id="analyzeBtnIcon" data-lucide="sparkles" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <div id="errorContainer" class="hidden mt-2 p-3 bg-red-900/30 border border-red-500/50 rounded-lg text-sm text-red-200 flex items-start space-x-2">
+                    <i data-lucide="alert-circle" class="w-5 h-5 shrink-0 mt-0.5 text-red-400"></i>
+                    <span id="errorMessage">An error occurred.</span>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-6 flex flex-col h-full">
+                <h2 class="text-xl font-semibold flex items-center space-x-2 border-b border-slate-700 pb-3 mb-4">
+                    <i data-lucide="activity" class="w-5 h-5 text-blue-400"></i>
+                    <span>Analysis Results</span>
+                </h2>
+
+                <div id="resultsEmptyState" class="flex-1 flex flex-col items-center justify-center text-center space-y-3 opacity-60 min-h-[300px]">
+                    <i data-lucide="bar-chart-2" class="w-12 h-12 text-slate-500"></i>
+                    <p class="text-sm text-slate-400">Upload a chart and click analyze to see AI-generated trading signals and technical analysis.</p>
+                </div>
+
+                <div id="resultsContent" class="hidden flex-col space-y-5 h-full">
+                    <div class="flex items-center justify-between bg-slate-800/80 p-4 rounded-xl border border-slate-700">
+                        <div class="space-y-1">
+                            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">Trade Signal</p>
+                            <div id="signalBadge" class="inline-flex items-center space-x-2 px-3 py-1 rounded-md font-bold text-lg border"></div>
+                        </div>
+                        <div class="text-right space-y-1">
+                            <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold">AI Confidence</p>
+                            <div class="flex items-center justify-end space-x-2">
+                                <span id="confidenceScore" class="text-2xl font-bold text-white">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                            <p class="text-xs text-emerald-400 uppercase tracking-wider font-semibold mb-1 flex items-center"><i data-lucide="arrow-up-right" class="w-3 h-3 mr-1"></i> Resistance</p>
+                            <p id="resistanceLevel" class="text-sm text-slate-200 font-medium">--</p>
+                        </div>
+                        <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                            <p class="text-xs text-rose-400 uppercase tracking-wider font-semibold mb-1 flex items-center"><i data-lucide="arrow-down-right" class="w-3 h-3 mr-1"></i> Support</p>
+                            <p id="supportLevel" class="text-sm text-slate-200 font-medium">--</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 mt-2">
+                        <div class="bg-blue-900/20 p-3 rounded-lg border border-blue-500/30 text-center flex flex-col justify-center">
+                            <p class="text-[10px] text-blue-400 uppercase tracking-wider font-semibold mb-1">Entry</p>
+                            <p id="entryLevel" class="text-sm text-white font-bold">--</p>
+                        </div>
+                        <div class="bg-emerald-900/20 p-3 rounded-lg border border-emerald-500/30 text-center flex flex-col justify-center">
+                            <p class="text-[10px] text-emerald-400 uppercase tracking-wider font-semibold mb-1">Take Profit</p>
+                            <p id="tpLevel" class="text-sm text-white font-bold">--</p>
+                        </div>
+                        <div class="bg-rose-900/20 p-3 rounded-lg border border-rose-500/30 text-center flex flex-col justify-center">
+                            <p class="text-[10px] text-rose-400 uppercase tracking-wider font-semibold mb-1">Stop Loss</p>
+                            <p id="slLevel" class="text-sm text-white font-bold">--</p>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 min-h-[150px] flex flex-col">
+                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-2">Detailed Analysis</p>
+                        <div class="flex-1 bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 overflow-y-auto max-h-[250px]">
+                            <p id="analysisText" class="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap"></p>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto pt-2">
+                        <p class="text-[10px] text-slate-500 text-center">
+                            Disclaimer: This analysis is generated by AI and is for educational purposes only. It does not constitute financial advice. Always do your own research before trading.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        } else {
+            console.warn('Lucide icons failed to load.');
+        }
+
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const imagePreview = document.getElementById('imagePreview');
+        const clearBtn = document.getElementById('clearBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const analyzeBtnText = document.getElementById('analyzeBtnText');
+        const analyzeBtnLoader = document.getElementById('analyzeBtnLoader');
+        const analyzeBtnIcon = document.getElementById('analyzeBtnIcon');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const endpointInput = document.getElementById('endpointInput');
+        const modelInput = document.getElementById('modelInput');
+        const rememberKeyBtn = document.getElementById('rememberKeyBtn');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultsEmptyState = document.getElementById('resultsEmptyState');
+        const resultsContent = document.getElementById('resultsContent');
+        const signalBadge = document.getElementById('signalBadge');
+        const confidenceScore = document.getElementById('confidenceScore');
+        const resistanceLevel = document.getElementById('resistanceLevel');
+        const supportLevel = document.getElementById('supportLevel');
+        const entryLevel = document.getElementById('entryLevel');
+        const tpLevel = document.getElementById('tpLevel');
+        const slLevel = document.getElementById('slLevel');
+        const analysisText = document.getElementById('analysisText');
+
+        let currentImageBase64 = null;
+        let currentMimeType = null;
+
+        const defaultEndpoint = 'https://api.freemodel.dev/v1/chat/completions';
+        const defaultModel = 'gpt-5.5';
+
+        apiKeyInput.value = localStorage.getItem('ai-chart-analyst-api-key') || '';
+        endpointInput.value = localStorage.getItem('ai-chart-analyst-endpoint') || defaultEndpoint;
+        modelInput.value = localStorage.getItem('ai-chart-analyst-model') || defaultModel;
+
+        rememberKeyBtn.addEventListener('click', () => {
+            const key = apiKeyInput.value.trim();
+            const endpoint = endpointInput.value.trim();
+            const model = modelInput.value.trim();
+
+            if (!key && !endpoint && !model) {
+                localStorage.removeItem('ai-chart-analyst-api-key');
+                localStorage.removeItem('ai-chart-analyst-endpoint');
+                localStorage.removeItem('ai-chart-analyst-model');
+                endpointInput.value = defaultEndpoint;
+                modelInput.value = defaultModel;
+                showError('Saved settings cleared. Paste a key before analyzing.');
+                return;
+            }
+
+            if (key) localStorage.setItem('ai-chart-analyst-api-key', key);
+            if (endpoint) localStorage.setItem('ai-chart-analyst-endpoint', endpoint);
+            if (model) localStorage.setItem('ai-chart-analyst-model', model);
+            hideError();
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach((eventName) => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('drag-active');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach((eventName) => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('drag-active');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(event) {
+            handleFiles(event.dataTransfer.files);
+        }
+
+        fileInput.addEventListener('change', function () {
+            handleFiles(this.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+
+            const file = files[0];
+
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                showError('Please upload a valid image file (PNG, JPG, WEBP).');
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                showError('Image is too large. Maximum size is 5MB.');
+                return;
+            }
+
+            hideError();
+
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = function () {
+                const base64data = reader.result;
+                const mimeMatch = base64data.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+
+                if (!mimeMatch) {
+                    showError('Failed to process image data.');
+                    return;
+                }
+
+                currentMimeType = mimeMatch[1];
+                currentImageBase64 = mimeMatch[2];
+                imagePreview.src = base64data;
+                imagePreview.classList.remove('hidden');
+                uploadPlaceholder.classList.add('hidden');
+                clearBtn.classList.remove('hidden');
+                analyzeBtn.disabled = false;
+                resetResultsUI();
+            };
+        }
+
+        clearBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            currentImageBase64 = null;
+            currentMimeType = null;
+            fileInput.value = '';
+            imagePreview.src = '';
+            imagePreview.classList.add('hidden');
+            uploadPlaceholder.classList.remove('hidden');
+            clearBtn.classList.add('hidden');
+            analyzeBtn.disabled = true;
+            resetResultsUI();
+            hideError();
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorContainer.classList.remove('hidden');
+        }
+
+        function hideError() {
+            errorContainer.classList.add('hidden');
+        }
+
+        function resetResultsUI() {
+            resultsContent.classList.add('hidden');
+            resultsContent.classList.remove('flex');
+            resultsEmptyState.classList.remove('hidden');
+            signalBadge.innerHTML = '';
+            signalBadge.className = 'inline-flex items-center space-x-2 px-3 py-1 rounded-md font-bold text-lg border';
+            confidenceScore.textContent = '0%';
+            confidenceScore.className = 'text-2xl font-bold text-white';
+            resistanceLevel.textContent = '--';
+            supportLevel.textContent = '--';
+            entryLevel.textContent = '--';
+            tpLevel.textContent = '--';
+            slLevel.textContent = '--';
+            analysisText.textContent = '';
+        }
+
+        analyzeBtn.addEventListener('click', async () => {
+            if (!currentImageBase64) return;
+
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                showError('Paste a FreeModel API key before analyzing the chart.');
+                return;
+            }
+
+            const endpoint = endpointInput.value.trim();
+            const model = modelInput.value.trim();
+            if (!endpoint || !model) {
+                showError('Enter both a FreeModel endpoint and model name.');
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            analyzeBtnText.textContent = 'Analyzing...';
+            analyzeBtnLoader.classList.remove('hidden');
+            analyzeBtnIcon.classList.add('hidden');
+            hideError();
+            resultsEmptyState.classList.add('hidden');
+            resultsContent.classList.add('hidden');
+
+            try {
+                await performAIAnalysis({ apiKey, endpoint, model });
+            } catch (error) {
+                console.error(error);
+                showError(error.message || 'An unexpected error occurred during analysis.');
+                resetResultsUI();
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtnText.textContent = 'Analyze Chart';
+                analyzeBtnLoader.classList.add('hidden');
+                analyzeBtnIcon.classList.remove('hidden');
+            }
+        });
+
+        async function performAIAnalysis({ apiKey, endpoint, model }) {
+            const promptText = `
+You are an expert technical analyst with years of experience trading crypto, forex, and stocks.
+Analyze the provided trading chart image.
+Identify the prevailing trend, key chart patterns, and estimate the major support and resistance levels.
+Based on your strict technical analysis, provide a definitive trading signal: "BUY", "SELL", or "HOLD".
+Provide a confidence score for your signal from 0 to 100.
+Also, estimate the optimal entry price, a reasonable take profit target, and a safe stop loss level.
+
+IMPORTANT: You MUST respond ONLY with a valid JSON object. Do not include markdown blocks, backticks, or any other text outside the JSON.
+Use the following exact schema:
+{
+  "signal": "BUY" | "SELL" | "HOLD",
+  "confidence": number,
+  "entry": "string describing the specific entry price or zone",
+  "takeProfit": "string describing the specific take profit price",
+  "stopLoss": "string describing the specific stop loss price",
+  "support": "string describing the support zone/price",
+  "resistance": "string describing the resistance zone/price",
+  "analysis": "string containing a detailed paragraph explaining your reasoning, patterns spotted, and trend context."
+}`;
+
+            const payload = {
+                model,
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a technical chart analyst. Return only valid JSON.'
+                    },
+                    {
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'text',
+                                text: promptText
+                            },
+                            {
+                                type: 'image_url',
+                                image_url: {
+                                    url: `data:${currentMimeType};base64,${currentImageBase64}`
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature: 0.2,
+                response_format: { type: 'json_object' }
+            };
+
+            if (window.location.protocol === 'file:') {
+                throw new Error('Open this page through the local server: node ai-chart-analyst-server.js');
+            }
+
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ apiKey, endpoint, payload })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API request failed with status ${response.status}: ${errorText.slice(0, 180)}`);
+            }
+
+            const result = await response.json();
+            const aiText = result?.choices?.[0]?.message?.content;
+
+            if (!aiText) {
+                throw new Error('No valid content received from AI.');
+            }
+
+            let analysisData;
+            try {
+                analysisData = JSON.parse(aiText.replace(/```json/gi, '').replace(/```/g, '').trim());
+            } catch (parseError) {
+                console.error('Failed to parse JSON from AI:', aiText);
+                throw new Error('AI returned an unreadable format. Please try again.');
+            }
+
+            renderResults(analysisData);
+        }
+
+        function renderResults(data) {
+            resultsEmptyState.classList.add('hidden');
+            resultsContent.classList.remove('hidden');
+            resultsContent.classList.add('flex');
+
+            const signal = (data.signal || 'HOLD').toUpperCase();
+            signalBadge.innerHTML = '';
+
+            let badgeClasses = 'inline-flex items-center space-x-2 px-3 py-1 rounded-md font-bold text-lg border ';
+            let iconHtml = '';
+
+            if (signal === 'BUY') {
+                badgeClasses += 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+                iconHtml = '<i data-lucide="trending-up" class="w-5 h-5"></i>';
+            } else if (signal === 'SELL') {
+                badgeClasses += 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+                iconHtml = '<i data-lucide="trending-down" class="w-5 h-5"></i>';
+            } else {
+                badgeClasses += 'bg-amber-500/20 text-amber-400 border-amber-500/30';
+                iconHtml = '<i data-lucide="minus" class="w-5 h-5"></i>';
+            }
+
+            signalBadge.className = badgeClasses;
+            signalBadge.innerHTML = `${iconHtml} <span>${signal}</span>`;
+
+            const confidence = Math.min(Math.max(parseInt(data.confidence, 10) || 0, 0), 100);
+            confidenceScore.textContent = `${confidence}%`;
+
+            if (confidence >= 80) {
+                confidenceScore.className = 'text-2xl font-bold text-emerald-400';
+            } else if (confidence >= 50) {
+                confidenceScore.className = 'text-2xl font-bold text-amber-400';
+            } else {
+                confidenceScore.className = 'text-2xl font-bold text-rose-400';
+            }
+
+            resistanceLevel.textContent = data.resistance || 'Not identified';
+            supportLevel.textContent = data.support || 'Not identified';
+            entryLevel.textContent = data.entry || 'N/A';
+            tpLevel.textContent = data.takeProfit || 'N/A';
+            slLevel.textContent = data.stopLoss || 'N/A';
+            analysisText.textContent = data.analysis || 'No detailed analysis provided.';
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+    </script>
+</body>
+</html>

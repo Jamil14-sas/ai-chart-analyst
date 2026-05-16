@@ -1,0 +1,20 @@
+{
+  "name": "ai-chart-analyst",
+  "version": "1.0.0",
+  "description": "A local AI chart analysis tool that uses FreeModel's OpenAI-compatible API.",
+  "main": "ai-chart-analyst-server.js",
+  "scripts": {
+    "start": "node ai-chart-analyst-server.js"
+  },
+  "keywords": [
+    "ai",
+    "chart-analysis",
+    "freemodel",
+    "trading"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
