@@ -4,6 +4,7 @@
   "description": "A local AI chart analysis tool that uses FreeModel's OpenAI-compatible API.",
   "main": "ai-chart-analyst-server.js",
   "scripts": {
+    "dev": "node ai-chart-analyst-server.js",
     "start": "node ai-chart-analyst-server.js"
   },
   "keywords": [
